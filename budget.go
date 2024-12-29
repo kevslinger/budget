@@ -1,7 +1,11 @@
 package budget
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 )
 
 func Main() int {
@@ -12,7 +16,7 @@ func Main() int {
 		return 1
 	}
 	totalIncome := incomePeriod.SumIncomes()
-	fmt.Printf("Congrats on earning %f in %s!\n", totalIncome, incomePeriod.PeriodName)
+	fmt.Printf("Congrats on earning %.2ff in %s!\n", totalIncome, incomePeriod.PeriodName)
 	fmt.Println("Now it is time to enter your expenses.")
 	expensePeriod, err := ScanExpensePeriod()
 	if err != nil {
@@ -21,6 +25,7 @@ func Main() int {
 	}
 
 	fmt.Printf("After paying your expenses for the month, you were left with %.2f!\n", incomePeriod.SumIncomes()-expensePeriod.SumExpenses())
+	PrintExpenseReport(incomePeriod, expensePeriod)
 	return 0
 }
 
@@ -170,5 +175,26 @@ func getNumberEnding(num int) string {
 		return "rd"
 	default:
 		return "th"
+	}
+}
+
+func PrintExpenseReport(incomePeriod *IncomePeriod, expensePeriod *ExpensePeriod) {
+	fmt.Printf("Would you like your expenses printed in CSV format for your records? [y/N] ")
+	var shouldPrint string
+	_, err := fmt.Scanln(&shouldPrint)
+	if err != nil {
+		fmt.Println("Error reading if you would like your expenses printed! Defaulting to No")
+	}
+	if strings.ToLower(shouldPrint) == "y" {
+		fmt.Printf("Income and Expense report for the income period %s and expense period %s\n", incomePeriod.PeriodName, expensePeriod.PeriodName)
+		csvWriter := csv.NewWriter(os.Stdout)
+		csvWriter.Write([]string{"Date", "Amount", "Category"})
+		for _, income := range incomePeriod.Incomes {
+			csvWriter.Write([]string{income.Time, strconv.FormatFloat(income.Amount, 'f', 2, 64), income.Category})
+		}
+		for _, expense := range expensePeriod.Expenses {
+			csvWriter.Write([]string{expense.Time, strconv.FormatFloat(expense.Amount, 'f', 2, 64), expense.Category})
+		}
+		csvWriter.Flush()
 	}
 }

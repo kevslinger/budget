@@ -28,8 +28,7 @@ func Main() int {
 		return 1
 	}
 
-	totalIncome := incomePeriod.SumIncomes()
-	fmt.Printf("Congrats on earning %.2f in %s!\n", totalIncome, incomePeriod.PeriodName)
+	fmt.Printf("Congrats on earning %.2f in %s!\n", incomePeriod.SumIncomes(), incomePeriod.PeriodName)
 	fmt.Println("Now, enter your expense(s)")
 	expensePeriod, err := ScanExpensePeriod(scanner, budgetPeriodName)
 	if err != nil {
@@ -109,7 +108,6 @@ func ScanIncomes(scanner *bufio.Scanner) ([]Income, error) {
 	}
 	var amount float64
 	var err error
-	// TODO: Better way to end?
 	for time != "-1" {
 		fmt.Printf("How much did you earn? Enter the amount without currency symbol: ")
 		if scanner.Scan() {
@@ -190,7 +188,6 @@ func ScanExpenses(scanner *bufio.Scanner) ([]Expense, error) {
 	var amount float64
 	var category string
 	var err error
-	// TODO: Better way to end?
 	for time != "-1" {
 		fmt.Printf("How much did the expense cost? Enter the amount without currency symbol: ")
 		if scanner.Scan() {

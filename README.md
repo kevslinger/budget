@@ -1,9 +1,10 @@
+[![Go Reference](https://pkg.go.dev/badge/github.com/kevslinger/budget.svg)](https://pkg.go.dev/github.com/kevslinger/budget)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kevslinger/budget)](https://goreportcard.com/report/github.com/kevslinger/budget)
+
 # Budget Tracker App
 
-\<Work in Progress\>
-
-This app will eventually help you keep track of your income and expenses on a monthly basis.
-For now, though, it just has the functionality of a "Hello world" application.
+`budget` helps you track your incomes and expenses.
+By submintting them via the command line, you can receive a report of your budget in CSV format.
 
 ## Installation and Running
 
@@ -18,3 +19,7 @@ To run:
 ```shell
 budget
 ```
+
+## Example
+
+![Example](./example.png)

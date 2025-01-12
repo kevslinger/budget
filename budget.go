@@ -2,7 +2,6 @@ package budget
 
 import (
 	"bufio"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"os"
@@ -22,22 +21,21 @@ func Main() int {
 	}
 	fmt.Printf("You've selected to record your budget for the period %s. First, enter your income(s)\n", budgetPeriodName)
 
-	incomePeriod, err := ScanIncomePeriod(scanner, budgetPeriodName)
+	incomes, err := ScanIncomes(scanner)
 	if err != nil {
 		fmt.Println("There was an error recording your income(s)! Please restart the program and input valid incomes. Error: ", err)
 		return 1
 	}
 
-	fmt.Printf("Congrats on earning %.2f in %s!\n", incomePeriod.SumIncomes(), incomePeriod.PeriodName)
 	fmt.Println("Now, enter your expense(s)")
-	expensePeriod, err := ScanExpensePeriod(scanner, budgetPeriodName)
+	expenses, err := ScanExpenses(scanner)
 	if err != nil {
 		fmt.Println("There was an error recording your expense(s)! Please restart the program and input valid expenses. Error: ", err)
 		return 1
 	}
+	report := NewBudgetReport(budgetPeriodName, append(incomes, expenses...))
 
-	fmt.Printf("After paying your expenses for the month, you were left with %.2f!\n", incomePeriod.SumIncomes()-expensePeriod.SumExpenses())
-	ScanPrintExpenseReport(os.Stdout, scanner, budgetPeriodName, incomePeriod, expensePeriod)
+	ScanPrintExpenseReport(os.Stdout, scanner, report)
 	return 0
 }
 
@@ -51,54 +49,84 @@ func ScanPeriod(scanner *bufio.Scanner) (string, error) {
 	}
 }
 
-// IncomePeriod contains a representative name for the income(s) (e.g. "January 1970")
-// as well as all incomes that occurred in that time
-type IncomePeriod struct {
-	PeriodName string
-	Incomes    []Income
+type Transaction struct {
+	Amount      Euro
+	Description string
+	Time        string
 }
 
-// SumIncomes returns the sum of the income amounts
-func (i *IncomePeriod) SumIncomes() float64 {
-	sum := 0.0
-	for _, income := range i.Incomes {
-		sum += income.Amount
+type Report struct {
+	Name         string
+	NetIncome    Euro
+	TotalIncome  Euro
+	TotalExpense Euro
+	transactions []Transaction
+}
+
+func NewBudgetReport(reportName string, transactions []Transaction) Report {
+	totalIncome := NewEuro(0.0)
+	totalExpense := NewEuro(0.0)
+	for _, transaction := range transactions {
+		if transaction.Amount.cents < 0 {
+			totalExpense = AddEuros(totalExpense, transaction.Amount)
+		} else {
+			totalIncome = AddEuros(totalIncome, transaction.Amount)
+		}
 	}
-	return sum
+	return Report{Name: reportName, NetIncome: AddEuros(totalIncome, totalExpense), TotalIncome: totalIncome, TotalExpense: totalExpense, transactions: transactions}
 }
 
-// SortIncomes sorts incomes by amount in descending order
-func (i *IncomePeriod) SortIncomes() {
-	slices.SortFunc(i.Incomes, func(a, b Income) int {
-		if a.Amount <= b.Amount {
+// SortIncomes sort the incomes in the report from largest to smallest
+func (r Report) SortIncomes() []Transaction {
+	var incomes []Transaction
+	for _, transaction := range r.transactions {
+		if transaction.Amount.cents > 0 {
+			incomes = append(incomes, transaction)
+		}
+	}
+	return sortTransactions(incomes)
+}
+
+// SortExpenses sorts expenses in the report from largest expense to smallest expense
+func (r Report) SortExpenses() []Transaction {
+	var expenses []Transaction
+	for _, transaction := range r.transactions {
+		if transaction.Amount.cents < 0 {
+			expenses = append(expenses, transaction)
+		}
+	}
+	return sortTransactions(expenses)
+}
+
+func sortTransactions(transactions []Transaction) []Transaction {
+	slices.SortFunc(transactions, func(a, b Transaction) int {
+		if a.Amount.cents <= b.Amount.cents {
 			return 1
 		} else {
 			return -1
 		}
 	})
+	return transactions
 }
 
-// Income represents a single reception of money, e.g. a salary or a reimbursement
-type Income struct {
-	Time     string
-	Amount   float64
-	Category string
-}
-
-// ScanIncomePeriod scans the user-inputted period and list of incomes, and returns the collected IncomePeriod
-// or an error, if one occurred
-func ScanIncomePeriod(scanner *bufio.Scanner, incomePeriodName string) (*IncomePeriod, error) {
-	incomes, err := ScanIncomes(scanner)
-	if err != nil {
-		return nil, fmt.Errorf("error reading incomes! err: %w", err)
+func (r Report) String() string {
+	var str strings.Builder
+	str.WriteString(fmt.Sprintf("Budget Report for the period %s\n", r.Name))
+	str.WriteString(fmt.Sprintf("Total Income: %s, Total Expense: %s, Net Income: %s\n", r.TotalIncome.String(), r.TotalExpense.String(), r.NetIncome.String()))
+	str.WriteString("Time,Amount,Description\n")
+	for _, income := range r.SortIncomes() {
+		str.WriteString(fmt.Sprintf("%s,%s,%s\n", income.Time, income.Amount.String(), income.Description))
 	}
-	return &IncomePeriod{PeriodName: incomePeriodName, Incomes: incomes}, nil
+	for _, expense := range r.SortExpenses() {
+		str.WriteString(fmt.Sprintf("%s,%s,%s\n", expense.Time, expense.Amount.String(), expense.Description))
+	}
+	return str.String()
 }
 
 // ScanIncomes accepts user-submitted information about their income(s) and returns a slice of Income structs
 // or an error, if one occurred
-func ScanIncomes(scanner *bufio.Scanner) ([]Income, error) {
-	var incomes []Income
+func ScanIncomes(scanner *bufio.Scanner) ([]Transaction, error) {
+	var incomes []Transaction
 	var time string
 	fmt.Printf("When did you earn the %d%s income? Press -1 to exit: ", len(incomes)+1, GetNumberEnding(len(incomes)+1))
 	if scanner.Scan() {
@@ -119,7 +147,7 @@ func ScanIncomes(scanner *bufio.Scanner) ([]Income, error) {
 		} else {
 			return incomes, fmt.Errorf("no amount provided for income on %s", time)
 		}
-		incomes = append(incomes, Income{Time: time, Amount: amount, Category: "Income"})
+		incomes = append(incomes, Transaction{Time: time, Amount: NewEuro(amount), Description: "Income"})
 		fmt.Printf("When did you earn the %d%s income? Press -1 to exit: ", len(incomes)+1, GetNumberEnding(len(incomes)+1))
 		if scanner.Scan() {
 			time = scanner.Text()
@@ -130,54 +158,10 @@ func ScanIncomes(scanner *bufio.Scanner) ([]Income, error) {
 	return incomes, nil
 }
 
-// ExpensePeriod consists of a name corresponding to that period as well as a slice of Expense
-// for all expenses occurring in that period
-type ExpensePeriod struct {
-	PeriodName string
-	Expenses   []Expense
-}
-
-// SumExpenses returns a sum of all the expense amounts
-func (e *ExpensePeriod) SumExpenses() float64 {
-	sum := 0.0
-	for _, expense := range e.Expenses {
-		sum += expense.Amount
-	}
-	return sum
-}
-
-// SortExpenses sorts the Expenses based on expense amount, descending
-func (e *ExpensePeriod) SortExpenses() {
-	slices.SortFunc(e.Expenses, func(a, b Expense) int {
-		if a.Amount <= b.Amount {
-			return 1
-		} else {
-			return -1
-		}
-	})
-}
-
-// Expense represents a single expenditure, e.g. buying food or paying rent
-type Expense struct {
-	Time     string
-	Amount   float64
-	Category string
-}
-
-// ScanExpensePeriod accepts user-submitted data about their expenses for a given period,
-// marshals the data into an ExpensePeriod, and returns the result, or an error if one occurred
-func ScanExpensePeriod(scanner *bufio.Scanner, expensePeriodName string) (*ExpensePeriod, error) {
-	expenses, err := ScanExpenses(scanner)
-	if err != nil {
-		return nil, fmt.Errorf("error reading expenses! err: %w", err)
-	}
-	return &ExpensePeriod{PeriodName: expensePeriodName, Expenses: expenses}, nil
-}
-
 // ScanExpenses acepts user-submitted data about their expenses, marshals each instance into an Expense object,
 // and returns the slice of Expenses created, or an error if one occurred
-func ScanExpenses(scanner *bufio.Scanner) ([]Expense, error) {
-	var expenses []Expense
+func ScanExpenses(scanner *bufio.Scanner) ([]Transaction, error) {
+	var expenses []Transaction
 	var time string
 	fmt.Printf("What time did the %d%s expense occur? Press -1 to exit: ", len(expenses)+1, GetNumberEnding(len(expenses)+1))
 	if scanner.Scan() {
@@ -205,7 +189,7 @@ func ScanExpenses(scanner *bufio.Scanner) ([]Expense, error) {
 		} else {
 			return expenses, fmt.Errorf("no category provided for expense on %s of amount %.2f", time, amount)
 		}
-		expenses = append(expenses, Expense{Time: time, Amount: amount, Category: category})
+		expenses = append(expenses, Transaction{Time: time, Amount: NewEuro(-amount), Description: category})
 		fmt.Printf("What time did the %d%s expense occur? Press -1 to exit: ", len(expenses)+1, GetNumberEnding(len(expenses)+1))
 		if scanner.Scan() {
 			time = scanner.Text()
@@ -218,7 +202,7 @@ func ScanExpenses(scanner *bufio.Scanner) ([]Expense, error) {
 }
 
 // ScanPrintExpenseReport asks the user to input if they would like their incomes and expenses to be printed
-func ScanPrintExpenseReport(w io.Writer, scanner *bufio.Scanner, budgetPeriodName string, incomePeriod *IncomePeriod, expensePeriod *ExpensePeriod) {
+func ScanPrintExpenseReport(w io.Writer, scanner *bufio.Scanner, report Report) {
 	fmt.Printf("Would you like your expenses printed in CSV format for your records? [y/N] ")
 	var shouldPrint string
 	if scanner.Scan() {
@@ -228,24 +212,13 @@ func ScanPrintExpenseReport(w io.Writer, scanner *bufio.Scanner, budgetPeriodNam
 		return
 	}
 	if strings.ToLower(shouldPrint) == "y" {
-		PrintExpenseReport(w, budgetPeriodName, incomePeriod, expensePeriod)
+		PrintExpenseReport(w, report)
 	}
 }
 
 // PrintExpenseReport prints the user's income and expenses for a given period, in CSV format
-func PrintExpenseReport(w io.Writer, budgetPeriodName string, incomePeriod *IncomePeriod, expensePeriod *ExpensePeriod) {
-	fmt.Fprintf(w, "Income and Expense report for the income/expense period %s\n", budgetPeriodName)
-	csvWriter := csv.NewWriter(w)
-	csvWriter.Write([]string{"Date", "Amount", "Category"})
-	incomePeriod.SortIncomes()
-	for _, income := range incomePeriod.Incomes {
-		csvWriter.Write([]string{income.Time, strconv.FormatFloat(income.Amount, 'f', 2, 64), income.Category})
-	}
-	expensePeriod.SortExpenses()
-	for _, expense := range expensePeriod.Expenses {
-		csvWriter.Write([]string{expense.Time, strconv.FormatFloat(expense.Amount, 'f', 2, 64), expense.Category})
-	}
-	csvWriter.Flush()
+func PrintExpenseReport(w io.Writer, report Report) {
+	fmt.Fprint(w, report.String())
 }
 
 // GetNumberEnding finds the appropriate number ending (e.g. 1st, 2nd, 3rd, ...) for a given integer

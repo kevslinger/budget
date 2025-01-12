@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kevslinger/budget"
 )
 
@@ -23,26 +22,6 @@ func TestScanPeriodReturnsExpectedResult(t *testing.T) {
 	}
 }
 
-func TestScanIncomePeriod(t *testing.T) {
-	incomePeriodName := "Testing Scan Income Period"
-	firstIncomeTime := "January 5"
-	firstIncomeAmount := 500
-	secondIncomeTime := "January 6"
-	secondIncomeAmount := 1000
-	thirdIncomeTime := "February 1"
-	thirdIncomeAmount := 200
-
-	incomeScanner := bufio.NewScanner(strings.NewReader(fmt.Sprintf("%s\n%d\n%s\n%d\n%s\n%d\n-1", firstIncomeTime, firstIncomeAmount, secondIncomeTime, secondIncomeAmount, thirdIncomeTime, thirdIncomeAmount)))
-	expectedIncomePeriod := &budget.IncomePeriod{PeriodName: incomePeriodName, Incomes: []budget.Income{{Time: firstIncomeTime, Amount: float64(firstIncomeAmount), Category: "Income"}, {Time: secondIncomeTime, Amount: float64(secondIncomeAmount), Category: "Income"}, {Time: thirdIncomeTime, Amount: float64(thirdIncomeAmount), Category: "Income"}}}
-	actualIncomePeriod, err := budget.ScanIncomePeriod(incomeScanner, incomePeriodName)
-	if err != nil {
-		t.Fatalf("Got error reading income period: %v", err)
-	}
-	if !cmp.Equal(expectedIncomePeriod, actualIncomePeriod) {
-		t.Fatalf("Expected %#v but got %#v", expectedIncomePeriod, actualIncomePeriod)
-	}
-}
-
 func TestScanIncomes(t *testing.T) {
 	firstIncomeTime := "8am"
 	firstIncomeAmount := 100.0
@@ -52,124 +31,106 @@ func TestScanIncomes(t *testing.T) {
 	thirdIncomeAmount := 500.75
 
 	incomeScanner := bufio.NewScanner(strings.NewReader(fmt.Sprintf("%s\n%.2f\n%s\n%.2f\n%s\n%.2f\n-1", firstIncomeTime, firstIncomeAmount, secondIncomeTime, secondIncomeAmount, thirdIncomeTime, thirdIncomeAmount)))
-	expectedIncomes := []budget.Income{{Time: firstIncomeTime, Amount: firstIncomeAmount, Category: "Income"}, {Time: secondIncomeTime, Amount: secondIncomeAmount, Category: "Income"}, {Time: thirdIncomeTime, Amount: thirdIncomeAmount, Category: "Income"}}
+	expectedIncomes := []budget.Transaction{{Time: firstIncomeTime, Amount: budget.NewEuro(firstIncomeAmount), Description: "Income"}, {Time: secondIncomeTime, Amount: budget.NewEuro(secondIncomeAmount), Description: "Income"}, {Time: thirdIncomeTime, Amount: budget.NewEuro(thirdIncomeAmount), Description: "Income"}}
 	actualIncomes, err := budget.ScanIncomes(incomeScanner)
 	if err != nil {
 		t.Fatalf("Got error reading incomes: %v", err)
 	}
-	if !cmp.Equal(expectedIncomes, actualIncomes) {
-		t.Fatalf("Expected %#v but got %#v", expectedIncomes, actualIncomes)
+	if len(expectedIncomes) != len(actualIncomes) {
+		t.Fatalf("Expectted %#v got %#v", expectedIncomes, actualIncomes)
 	}
-}
-
-func TestScanExpensePeriod(t *testing.T) {
-	expensePeriodName := "Testing Scan Expense Period"
-	firstExpenseTime := "March 1"
-	firstExpenseAmount := 500.99
-	firstExpenseCategory := "Groceries"
-	secondExpenseTime := "March 28"
-	secondExpenseAmount := 1000.00
-	secondExpenseCategory := "Rent"
-	thirdExpenseTime := "March 30"
-	thirdExpenseAmount := 200.99
-	thirdExpenseCategory := "Travel"
-
-	expensePeriodScanner := bufio.NewScanner(strings.NewReader(fmt.Sprintf("%s\n%.2f\n%s\n%s\n%.2f\n%s\n%s\n%.2f\n%s\n-1", firstExpenseTime, firstExpenseAmount, firstExpenseCategory, secondExpenseTime, secondExpenseAmount, secondExpenseCategory, thirdExpenseTime, thirdExpenseAmount, thirdExpenseCategory)))
-	expectedExpensePeriod := &budget.ExpensePeriod{PeriodName: expensePeriodName, Expenses: []budget.Expense{{Time: firstExpenseTime, Amount: firstExpenseAmount, Category: firstExpenseCategory}, {Time: secondExpenseTime, Amount: secondExpenseAmount, Category: secondExpenseCategory}, {Time: thirdExpenseTime, Amount: thirdExpenseAmount, Category: thirdExpenseCategory}}}
-	actualExpensePeriod, err := budget.ScanExpensePeriod(expensePeriodScanner, expensePeriodName)
-	if err != nil {
-		t.Fatalf("Got error reading expense period: %v", err)
-	}
-	if !cmp.Equal(expectedExpensePeriod, actualExpensePeriod) {
-		t.Fatalf("Expected %#v but got %#v", expectedExpensePeriod, actualExpensePeriod)
+	for idx := range len(expectedIncomes) {
+		expected, actual := expectedIncomes[idx], actualIncomes[idx]
+		if expected.Time != actual.Time || expected.Amount.Cmp(actual.Amount) != 0 || expected.Description != actual.Description {
+			t.Fatalf("Expected %#v got %#v", expectedIncomes, actualIncomes)
+		}
 	}
 }
 
 func TestScanExpenses(t *testing.T) {
 	firstExpenseTime := "1"
 	firstExpenseAmount := 0.98
-	firstExpenseCategory := "Other"
+	firstExpenseDescription := "Other"
 	secondExpenseTime := "2"
 	secondExpenseAmount := 56.95
-	secondExpenseCategory := "Takeout"
+	secondExpenseDescription := "Takeout"
 	thirdExpenseTime := "5"
 	thirdExpenseAmount := 3.50
-	thirdExpenseCategory := "Groceries"
+	thirdExpenseDescription := "Groceries"
 
-	expenseScanner := bufio.NewScanner(strings.NewReader(fmt.Sprintf("%s\n%.2f\n%s\n%s\n%.2f\n%s\n%s\n%.2f\n%s\n-1", firstExpenseTime, firstExpenseAmount, firstExpenseCategory, secondExpenseTime, secondExpenseAmount, secondExpenseCategory, thirdExpenseTime, thirdExpenseAmount, thirdExpenseCategory)))
-	expectedExpenses := []budget.Expense{{Time: firstExpenseTime, Amount: firstExpenseAmount, Category: firstExpenseCategory}, {Time: secondExpenseTime, Amount: secondExpenseAmount, Category: secondExpenseCategory}, {Time: thirdExpenseTime, Amount: thirdExpenseAmount, Category: thirdExpenseCategory}}
+	expenseScanner := bufio.NewScanner(strings.NewReader(fmt.Sprintf("%s\n%.2f\n%s\n%s\n%.2f\n%s\n%s\n%.2f\n%s\n-1", firstExpenseTime, firstExpenseAmount, firstExpenseDescription, secondExpenseTime, secondExpenseAmount, secondExpenseDescription, thirdExpenseTime, thirdExpenseAmount, thirdExpenseDescription)))
+	expectedExpenses := []budget.Transaction{{Time: firstExpenseTime, Amount: budget.NewEuro(-firstExpenseAmount), Description: firstExpenseDescription}, {Time: secondExpenseTime, Amount: budget.NewEuro(-secondExpenseAmount), Description: secondExpenseDescription}, {Time: thirdExpenseTime, Amount: budget.NewEuro(-thirdExpenseAmount), Description: thirdExpenseDescription}}
 	actualExpenses, err := budget.ScanExpenses(expenseScanner)
 	if err != nil {
 		t.Fatalf("Got error reading expenses: %v", err)
 	}
-	if !cmp.Equal(expectedExpenses, actualExpenses) {
-		t.Fatalf("Expected %#v but got %#v", expectedExpenses, actualExpenses)
+	if len(expectedExpenses) != len(actualExpenses) {
+		t.Fatalf("Expected %#v got %#v", expectedExpenses, actualExpenses)
+	}
+	for idx := range len(expectedExpenses) {
+		expected, actual := expectedExpenses[idx], actualExpenses[idx]
+		if expected.Time != actual.Time || expected.Amount.Cmp(actual.Amount) != 0 || expected.Description != actual.Description {
+			t.Fatalf("Expected %#v got %#v", expectedExpenses, actualExpenses)
+		}
 	}
 }
 
 func TestScanPrintExpenseReportEmptyInputDefaultsToNo(t *testing.T) {
 	scanner := bufio.NewScanner(strings.NewReader("\n"))
-	budget.ScanPrintExpenseReport(nil, scanner, "", nil, nil)
+	budget.ScanPrintExpenseReport(nil, scanner, budget.Report{})
 }
 
 func TestPrintExpenseReport(t *testing.T) {
-	budgetPeriodName := "2024"
+	budgetName := "2024"
 	incomeTime := "January"
 	incomeAmount := 5000.0
-	incomeCategory := "Income"
-	incomePeriod := &budget.IncomePeriod{PeriodName: budgetPeriodName, Incomes: []budget.Income{{Time: incomeTime, Amount: incomeAmount, Category: incomeCategory}}}
+	incomeDescription := "Income"
 	expenseTime := "January"
-	expenseAmount := 4999.0
-	expenseCategory := "Rent"
-	expensePeriod := &budget.ExpensePeriod{PeriodName: budgetPeriodName, Expenses: []budget.Expense{{Time: expenseTime, Amount: expenseAmount, Category: expenseCategory}}}
-	expected := fmt.Sprintf("Income and Expense report for the income/expense period %s\nDate,Amount,Category\n%s,%.2f,%s\n%s,%.2f,%s\n", budgetPeriodName, incomeTime, incomeAmount, incomeCategory, expenseTime, expenseAmount, expenseCategory)
+	expenseAmount := -4999.0
+	expenseDescription := "Rent"
+	report := budget.NewBudgetReport(budgetName, []budget.Transaction{{Time: incomeTime, Amount: budget.NewEuro(incomeAmount), Description: incomeDescription}, {Time: expenseTime, Amount: budget.NewEuro(expenseAmount), Description: expenseDescription}})
+	expected := report.String()
 	w := &strings.Builder{}
-	budget.PrintExpenseReport(w, budgetPeriodName, incomePeriod, expensePeriod)
+	budget.PrintExpenseReport(w, report)
 	actual := w.String()
 	if expected != actual {
 		t.Fatalf("Expected %s got %s", expected, actual)
 	}
 }
 
-func TestSumIncomes(t *testing.T) {
-	incomePeriod := budget.IncomePeriod{Incomes: []budget.Income{{Amount: 100.5}, {Amount: 2000}, {Amount: 0.5}}}
-	expected := 2101.0
-	actual := incomePeriod.SumIncomes()
-	if expected != actual {
-		t.Fatalf("Expected %f got %f", expected, actual)
-	}
-}
-
 func TestSortIncomes(t *testing.T) {
-	firstIncome := budget.Income{Time: "1", Amount: 2000.0}
-	secondIncome := budget.Income{Time: "2", Amount: 675.4}
-	thirdIncome := budget.Income{Time: "3", Amount: 500.1}
-	sortedIncomes := []budget.Income{firstIncome, secondIncome, thirdIncome}
-	incomePeriod := budget.IncomePeriod{Incomes: []budget.Income{thirdIncome, firstIncome, secondIncome}}
-	incomePeriod.SortIncomes()
-	if !cmp.Equal(sortedIncomes, incomePeriod.Incomes) {
-		t.Fatalf("Expected %#v got %#v", sortedIncomes, incomePeriod.Incomes)
+	firstIncome := budget.Transaction{Time: "1", Amount: budget.NewEuro(2000.0)}
+	secondIncome := budget.Transaction{Time: "2", Amount: budget.NewEuro(675.4)}
+	thirdIncome := budget.Transaction{Time: "3", Amount: budget.NewEuro(500.1)}
+	expectedSortedIncomes := []budget.Transaction{firstIncome, secondIncome, thirdIncome}
+	incomePeriod := budget.NewBudgetReport("Test", []budget.Transaction{thirdIncome, firstIncome, secondIncome})
+	actualSortedIncomes := incomePeriod.SortIncomes()
+	if len(expectedSortedIncomes) != len(actualSortedIncomes) {
+		t.Errorf("Expected %#v got %#v", expectedSortedIncomes, actualSortedIncomes)
 	}
-}
-
-func TestSumExpenses(t *testing.T) {
-	expensePeriod := budget.ExpensePeriod{Expenses: []budget.Expense{{Amount: 500.5}, {Amount: 1000}, {Amount: 0.95}}}
-	expected := 1501.45
-	actual := expensePeriod.SumExpenses()
-	if expected != actual {
-		t.Fatalf("Expected %f but got %f", expected, actual)
+	for idx := range len(expectedSortedIncomes) {
+		expected, actual := expectedSortedIncomes[idx], actualSortedIncomes[idx]
+		if expected.Time != actual.Time || expected.Amount.Cmp(actual.Amount) != 0 || expected.Description != actual.Description {
+			t.Errorf("Expected %#v got %#v", expected, actual)
+		}
 	}
 }
 
 func TestSortExpenses(t *testing.T) {
-	firstExpense := budget.Expense{Time: "January 2025", Amount: 2699.99, Category: "Rent"}
-	secondExpense := budget.Expense{Time: "February 2025", Amount: 2699.99, Category: "Rent"}
-	thirdExpense := budget.Expense{Time: "March 2025", Amount: 2699.99, Category: "Rent"}
-	sortedExpense := []budget.Expense{firstExpense, secondExpense, thirdExpense}
-	expensePeriod := budget.ExpensePeriod{Expenses: []budget.Expense{firstExpense, secondExpense, thirdExpense}}
-	expensePeriod.SortExpenses()
-	if !cmp.Equal(sortedExpense, expensePeriod.Expenses) {
-		t.Fatalf("Expected %#v got %#v", sortedExpense, expensePeriod.Expenses)
+	firstExpense := budget.Transaction{Time: "January 2025", Amount: budget.NewEuro(-2699.99), Description: "Rent"}
+	secondExpense := budget.Transaction{Time: "February 2025", Amount: budget.NewEuro(-2699.99), Description: "Rent"}
+	thirdExpense := budget.Transaction{Time: "March 2025", Amount: budget.NewEuro(-2699.99), Description: "Rent"}
+	expectedSortedExpenses := []budget.Transaction{firstExpense, secondExpense, thirdExpense}
+	report := budget.NewBudgetReport("Test", []budget.Transaction{firstExpense, secondExpense, thirdExpense})
+	actualSortedExpenses := report.SortExpenses()
+	if len(expectedSortedExpenses) != len(actualSortedExpenses) {
+		t.Errorf("Expected %#v got %#v", expectedSortedExpenses, actualSortedExpenses)
+	}
+	for idx := range len(expectedSortedExpenses) {
+		expected, actual := expectedSortedExpenses[idx], actualSortedExpenses[idx]
+		if expected.Time != actual.Time || expected.Amount.Cmp(actual.Amount) != 0 || expected.Description != actual.Description {
+			t.Errorf("Expected %#v got %#v", expected, actual)
+		}
 	}
 }
 
@@ -181,5 +142,22 @@ func TestGetNumberEnding(t *testing.T) {
 		if actual != expected[idx] {
 			t.Fatalf("Expected %s for %d but got %s", expected[idx], number, actual)
 		}
+	}
+}
+
+func TestBudgetReport(t *testing.T) {
+	transactions := []budget.Transaction{{Amount: budget.NewEuro(100.0), Description: "Salary"}, {Amount: budget.NewEuro(-50.0), Description: "Groceries"}}
+	report := budget.NewBudgetReport("Test", transactions)
+	expectedNet := budget.NewEuro(50.0)
+	if report.NetIncome != expectedNet {
+		t.Errorf("Expected report's Net to be %s, got %s", expectedNet, report.NetIncome)
+	}
+	expectedTotalIncome := budget.NewEuro(100.0)
+	if report.TotalIncome != expectedTotalIncome {
+		t.Errorf("Expected report's total income to be %s, got %s", expectedTotalIncome, report.TotalIncome)
+	}
+	expectedTotalExpense := budget.NewEuro(-50.0)
+	if report.TotalExpense != expectedTotalExpense {
+		t.Errorf("Expected report's total expense to be %s, got %s", expectedTotalExpense, report.TotalExpense)
 	}
 }

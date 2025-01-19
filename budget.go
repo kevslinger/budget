@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 )
 
 func Main() int {
-	fmt.Println("Welcome to the budget tracker app!")
+	fmt.Println("Welcome to the budget tracker app! You may input budget report files as well as individual incomes and/or expenses, which will be compiled into a single report which can be saved to a CSV and/or printed to the screen.")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	budgetPeriodName, err := ScanPeriod(scanner)
@@ -19,29 +18,40 @@ func Main() int {
 		fmt.Println("There was an error reading the name of your budget period! Please restart the program and input a valid period name. Error: ", err)
 		return 1
 	}
-	fmt.Printf("You've selected to record your budget for the period %s. First, enter your income(s)\n", budgetPeriodName)
+	fmt.Printf("You've selected to record your budget for the period %s.\n", budgetPeriodName)
 
+	paths := ScanReportPaths(scanner)
+	var reports []Report
+	for _, path := range paths {
+		report, err := ReadBudgetReportFromFile(budgetPeriodName, path)
+		if err != nil {
+			fmt.Printf("There was an error reading the budget report file with path %s! Skipping this report. Error: %v", path, err)
+			continue
+		}
+		reports = append(reports, report)
+	}
 	incomes, err := ScanIncomes(scanner)
 	if err != nil {
-		fmt.Println("There was an error recording your income(s)! Please restart the program and input valid incomes. Error: ", err)
-		return 1
+		fmt.Println("There was an error recording your incomes! These will be ignored. Error: ", err)
 	}
-
-	fmt.Println("Now, enter your expense(s)")
 	expenses, err := ScanExpenses(scanner)
 	if err != nil {
-		fmt.Println("There was an error recording your expense(s)! Please restart the program and input valid expenses. Error: ", err)
+		fmt.Println("There was an error recording your expenses! These will be ignored. Error: ", err)
+	}
+
+	combinedReport := CombineReports(budgetPeriodName, append(reports, NewBudgetReport(budgetPeriodName, append(incomes, expenses...))))
+	ScanPrintExpenseReport(os.Stdout, scanner, combinedReport)
+	err = ScanSaveExpenseReport(scanner, combinedReport)
+	if err != nil {
+		fmt.Println("there was an error saving your report to CSV! Try again. Error: ", err)
 		return 1
 	}
-	report := NewBudgetReport(budgetPeriodName, append(incomes, expenses...))
-
-	ScanPrintExpenseReport(os.Stdout, scanner, report)
 	return 0
 }
 
 // ScanPeriod returns the user-inputted period (string), or an error if one occurred
 func ScanPeriod(scanner *bufio.Scanner) (string, error) {
-	fmt.Printf("For what period would you like to record your budget? ")
+	fmt.Print("For what period would you like to record your budget? ")
 	if scanner.Scan() {
 		return scanner.Text(), nil
 	} else {
@@ -49,78 +59,31 @@ func ScanPeriod(scanner *bufio.Scanner) (string, error) {
 	}
 }
 
-type Transaction struct {
-	Amount      Euro
-	Description string
-	Time        string
+// ScanReportPath returns the user-inputted path to the CSV file they would like to use as their report
+func ScanReportPath(scanner *bufio.Scanner) (string, error) {
+	fmt.Print("What is the path to the report CSV file? ")
+	if scanner.Scan() {
+		return scanner.Text(), nil
+	}
+	return "", fmt.Errorf("no path provided")
 }
 
-type Report struct {
-	Name         string
-	NetIncome    Euro
-	TotalIncome  Euro
-	TotalExpense Euro
-	transactions []Transaction
-}
-
-func NewBudgetReport(reportName string, transactions []Transaction) Report {
-	totalIncome := NewEuro(0.0)
-	totalExpense := NewEuro(0.0)
-	for _, transaction := range transactions {
-		if transaction.Amount.cents < 0 {
-			totalExpense = AddEuros(totalExpense, transaction.Amount)
-		} else {
-			totalIncome = AddEuros(totalIncome, transaction.Amount)
+// ScanReportPath returns the user-inputted path to the CSV file they would like to use as their report
+func ScanReportPaths(scanner *bufio.Scanner) []string {
+	var paths []string
+	fmt.Printf("What is the path to the %d%s report CSV file? Enter -1 to stop adding paths: ", len(paths)+1, GetNumberEnding(len(paths)+1))
+	for scanner.Scan() {
+		path := scanner.Text()
+		if path == "-1" {
+			break
 		}
-	}
-	return Report{Name: reportName, NetIncome: AddEuros(totalIncome, totalExpense), TotalIncome: totalIncome, TotalExpense: totalExpense, transactions: transactions}
-}
-
-// SortIncomes sort the incomes in the report from largest to smallest
-func (r Report) SortIncomes() []Transaction {
-	var incomes []Transaction
-	for _, transaction := range r.transactions {
-		if transaction.Amount.cents > 0 {
-			incomes = append(incomes, transaction)
+		if len(path) == 0 {
+			continue
 		}
+		paths = append(paths, path)
+		fmt.Printf("What is the path to the %d%s report CSV file? Enter -1 to stop adding paths: ", len(paths)+1, GetNumberEnding(len(paths)+1))
 	}
-	return sortTransactions(incomes)
-}
-
-// SortExpenses sorts expenses in the report from largest expense to smallest expense
-func (r Report) SortExpenses() []Transaction {
-	var expenses []Transaction
-	for _, transaction := range r.transactions {
-		if transaction.Amount.cents < 0 {
-			expenses = append(expenses, transaction)
-		}
-	}
-	return sortTransactions(expenses)
-}
-
-func sortTransactions(transactions []Transaction) []Transaction {
-	slices.SortFunc(transactions, func(a, b Transaction) int {
-		if a.Amount.cents <= b.Amount.cents {
-			return 1
-		} else {
-			return -1
-		}
-	})
-	return transactions
-}
-
-func (r Report) String() string {
-	var str strings.Builder
-	str.WriteString(fmt.Sprintf("Budget Report for the period %s\n", r.Name))
-	str.WriteString(fmt.Sprintf("Total Income: %s, Total Expense: %s, Net Income: %s\n", r.TotalIncome.String(), r.TotalExpense.String(), r.NetIncome.String()))
-	str.WriteString("Time,Amount,Description\n")
-	for _, income := range r.SortIncomes() {
-		str.WriteString(fmt.Sprintf("%s,%s,%s\n", income.Time, income.Amount.String(), income.Description))
-	}
-	for _, expense := range r.SortExpenses() {
-		str.WriteString(fmt.Sprintf("%s,%s,%s\n", expense.Time, expense.Amount.String(), expense.Description))
-	}
-	return str.String()
+	return paths
 }
 
 // ScanIncomes accepts user-submitted information about their income(s) and returns a slice of Income structs
@@ -128,7 +91,7 @@ func (r Report) String() string {
 func ScanIncomes(scanner *bufio.Scanner) ([]Transaction, error) {
 	var incomes []Transaction
 	var time string
-	fmt.Printf("When did you earn the %d%s income? Press -1 to exit: ", len(incomes)+1, GetNumberEnding(len(incomes)+1))
+	fmt.Printf("When did you earn the %d%s income? Press -1 to stop adding incomes: ", len(incomes)+1, GetNumberEnding(len(incomes)+1))
 	if scanner.Scan() {
 		time = scanner.Text()
 	} else {
@@ -163,7 +126,7 @@ func ScanIncomes(scanner *bufio.Scanner) ([]Transaction, error) {
 func ScanExpenses(scanner *bufio.Scanner) ([]Transaction, error) {
 	var expenses []Transaction
 	var time string
-	fmt.Printf("What time did the %d%s expense occur? Press -1 to exit: ", len(expenses)+1, GetNumberEnding(len(expenses)+1))
+	fmt.Printf("What time did the %d%s expense occur? Press -1 to stop adding expenses: ", len(expenses)+1, GetNumberEnding(len(expenses)+1))
 	if scanner.Scan() {
 		time = scanner.Text()
 	} else {
@@ -203,15 +166,16 @@ func ScanExpenses(scanner *bufio.Scanner) ([]Transaction, error) {
 
 // ScanPrintExpenseReport asks the user to input if they would like their incomes and expenses to be printed
 func ScanPrintExpenseReport(w io.Writer, scanner *bufio.Scanner, report Report) {
-	fmt.Printf("Would you like your expenses printed in CSV format for your records? [y/N] ")
-	var shouldPrint string
+	fmt.Printf("Would you like your report printed in CSV format for your records? [Y/n] ")
+	y := "y"
+	shouldPrint := y
 	if scanner.Scan() {
 		shouldPrint = scanner.Text()
-	} else {
-		fmt.Println("Error reading if you would like your expenses printed! Defaulting to No")
-		return
+		if len(shouldPrint) == 0 {
+			shouldPrint = y
+		}
 	}
-	if strings.ToLower(shouldPrint) == "y" {
+	if strings.ToLower(shouldPrint) == y {
 		PrintExpenseReport(w, report)
 	}
 }
@@ -219,6 +183,39 @@ func ScanPrintExpenseReport(w io.Writer, scanner *bufio.Scanner, report Report) 
 // PrintExpenseReport prints the user's income and expenses for a given period, in CSV format
 func PrintExpenseReport(w io.Writer, report Report) {
 	fmt.Fprint(w, report.String())
+}
+
+// ScanSaveExpenseReport saves the user's report to a CSV file, if they wish
+func ScanSaveExpenseReport(scanner *bufio.Scanner, report Report) error {
+	fmt.Printf("Would you like your report saved to a CSV file? [Y/n]")
+	y := "y"
+	shouldSave := y
+	if scanner.Scan() {
+		shouldSave = scanner.Text()
+		if len(shouldSave) == 0 {
+			shouldSave = y
+		}
+	}
+	if strings.ToLower(shouldSave) == y {
+		return SaveExpenseReport(scanner, report)
+	}
+	return nil
+}
+
+// SaveExpenseReport saves the report to a user-specified path
+func SaveExpenseReport(scanner *bufio.Scanner, report Report) error {
+	fmt.Printf("Enter the filename to use for the report. (Default: %s): ", report.Name)
+	filename := report.Name
+	if scanner.Scan() {
+		filename = scanner.Text()
+		if len(filename) == 0 {
+			filename = report.Name
+		}
+	}
+	if !strings.HasSuffix(filename, ".csv") {
+		filename = filename + ".csv"
+	}
+	return report.Save(filename)
 }
 
 // GetNumberEnding finds the appropriate number ending (e.g. 1st, 2nd, 3rd, ...) for a given integer

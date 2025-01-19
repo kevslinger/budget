@@ -75,9 +75,9 @@ func TestScanExpenses(t *testing.T) {
 	}
 }
 
-func TestScanPrintExpenseReportEmptyInputDefaultsToNo(t *testing.T) {
+func TestScanPrintExpenseReportEmptyInputDefaultsToYes(t *testing.T) {
 	scanner := bufio.NewScanner(strings.NewReader("\n"))
-	budget.ScanPrintExpenseReport(nil, scanner, budget.Report{})
+	budget.ScanPrintExpenseReport(&strings.Builder{}, scanner, budget.Report{})
 }
 
 func TestPrintExpenseReport(t *testing.T) {

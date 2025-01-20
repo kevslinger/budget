@@ -113,10 +113,10 @@ func (r Report) Save(filename string) error {
 	writer := csv.NewWriter(file)
 	writer.Write([]string{"Time", "Amount", "Description"})
 	for _, income := range r.SortIncomes() {
-		writer.Write([]string{income.Time, income.Amount.String(), income.Description})
+		writer.Write([]string{income.Time, strconv.FormatFloat(float64(income.Amount.cents)/100, 'f', 2, 64), income.Description})
 	}
 	for _, expense := range r.SortExpenses() {
-		writer.Write([]string{expense.Time, expense.Amount.String(), expense.Description})
+		writer.Write([]string{expense.Time, strconv.FormatFloat(float64(expense.Amount.cents)/100, 'f', 2, 64), expense.Description})
 	}
 	writer.Flush()
 	return writer.Error()

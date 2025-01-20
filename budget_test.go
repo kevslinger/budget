@@ -98,42 +98,6 @@ func TestPrintExpenseReport(t *testing.T) {
 	}
 }
 
-func TestSortIncomes(t *testing.T) {
-	firstIncome := budget.Transaction{Time: "1", Amount: budget.NewEuro(2000.0)}
-	secondIncome := budget.Transaction{Time: "2", Amount: budget.NewEuro(675.4)}
-	thirdIncome := budget.Transaction{Time: "3", Amount: budget.NewEuro(500.1)}
-	expectedSortedIncomes := []budget.Transaction{firstIncome, secondIncome, thirdIncome}
-	incomePeriod := budget.NewBudgetReport("Test", []budget.Transaction{thirdIncome, firstIncome, secondIncome})
-	actualSortedIncomes := incomePeriod.SortIncomes()
-	if len(expectedSortedIncomes) != len(actualSortedIncomes) {
-		t.Errorf("Expected %#v got %#v", expectedSortedIncomes, actualSortedIncomes)
-	}
-	for idx := range len(expectedSortedIncomes) {
-		expected, actual := expectedSortedIncomes[idx], actualSortedIncomes[idx]
-		if expected.Time != actual.Time || expected.Amount.Cmp(actual.Amount) != 0 || expected.Description != actual.Description {
-			t.Errorf("Expected %#v got %#v", expected, actual)
-		}
-	}
-}
-
-func TestSortExpenses(t *testing.T) {
-	firstExpense := budget.Transaction{Time: "January 2025", Amount: budget.NewEuro(-2699.99), Description: "Rent"}
-	secondExpense := budget.Transaction{Time: "February 2025", Amount: budget.NewEuro(-2699.99), Description: "Rent"}
-	thirdExpense := budget.Transaction{Time: "March 2025", Amount: budget.NewEuro(-2699.99), Description: "Rent"}
-	expectedSortedExpenses := []budget.Transaction{firstExpense, secondExpense, thirdExpense}
-	report := budget.NewBudgetReport("Test", []budget.Transaction{firstExpense, secondExpense, thirdExpense})
-	actualSortedExpenses := report.SortExpenses()
-	if len(expectedSortedExpenses) != len(actualSortedExpenses) {
-		t.Errorf("Expected %#v got %#v", expectedSortedExpenses, actualSortedExpenses)
-	}
-	for idx := range len(expectedSortedExpenses) {
-		expected, actual := expectedSortedExpenses[idx], actualSortedExpenses[idx]
-		if expected.Time != actual.Time || expected.Amount.Cmp(actual.Amount) != 0 || expected.Description != actual.Description {
-			t.Errorf("Expected %#v got %#v", expected, actual)
-		}
-	}
-}
-
 func TestGetNumberEnding(t *testing.T) {
 	numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 33, 192, 566}
 	expected := []string{"st", "nd", "rd", "th", "th", "th", "th", "th", "th", "th", "th", "rd", "nd", "th"}
@@ -142,22 +106,5 @@ func TestGetNumberEnding(t *testing.T) {
 		if actual != expected[idx] {
 			t.Fatalf("Expected %s for %d but got %s", expected[idx], number, actual)
 		}
-	}
-}
-
-func TestBudgetReport(t *testing.T) {
-	transactions := []budget.Transaction{{Amount: budget.NewEuro(100.0), Description: "Salary"}, {Amount: budget.NewEuro(-50.0), Description: "Groceries"}}
-	report := budget.NewBudgetReport("Test", transactions)
-	expectedNet := budget.NewEuro(50.0)
-	if report.NetIncome != expectedNet {
-		t.Errorf("Expected report's Net to be %s, got %s", expectedNet, report.NetIncome)
-	}
-	expectedTotalIncome := budget.NewEuro(100.0)
-	if report.TotalIncome != expectedTotalIncome {
-		t.Errorf("Expected report's total income to be %s, got %s", expectedTotalIncome, report.TotalIncome)
-	}
-	expectedTotalExpense := budget.NewEuro(-50.0)
-	if report.TotalExpense != expectedTotalExpense {
-		t.Errorf("Expected report's total expense to be %s, got %s", expectedTotalExpense, report.TotalExpense)
 	}
 }

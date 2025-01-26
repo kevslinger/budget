@@ -1,8 +1,10 @@
 package budget_test
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kevslinger/budget"
 )
 
@@ -137,5 +139,22 @@ func TestTransactions(t *testing.T) {
 		if actual[idx].Time != expected[idx].Time || actual[idx].Amount.Cmp(expected[idx].Amount) != 0 || actual[idx].Description != expected[idx].Description {
 			t.Errorf("Expected %#v, got %#v", expected, actual)
 		}
+	}
+}
+
+func TestSave(t *testing.T) {
+	transactions := []budget.Transaction{{Time: "1", Amount: budget.NewEuro(500), Description: "Income"}, {Time: "2", Amount: budget.NewEuro(-25), Description: "Groceries"}, {Time: "3", Amount: budget.NewEuro(-200), Description: "Rent"}}
+	report := budget.NewBudgetReport("Test", transactions)
+	expected := `Time,Amount,Description
+1,500.00,Income
+3,-200.00,Rent
+2,-25.00,Groceries`
+	buffer := new(bytes.Buffer)
+	err := report.WriteCSV(buffer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("Expected %s, got %s, %s", expected, buffer.String(), cmp.Diff(expected, buffer.String()))
 	}
 }

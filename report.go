@@ -110,16 +110,22 @@ func (r Report) Save(filename string) error {
 		return err
 	}
 	defer file.Close()
-	writer := csv.NewWriter(file)
-	writer.Write([]string{"Time", "Amount", "Description"})
+	err = r.WriteCSV(file)
+	if err != nil {
+		return err
+	}
+	return file.Sync()
+}
+
+func (r Report) WriteCSV(writer io.Writer) error {
+	fmt.Fprint(writer, "Time,Amount,Description")
 	for _, income := range r.SortIncomes() {
-		writer.Write([]string{income.Time, strconv.FormatFloat(float64(income.Amount.cents)/100, 'f', 2, 64), income.Description})
+		fmt.Fprintf(writer, "\n%s,%.2f,%s", income.Time, float64(income.Amount.cents)/100, income.Description)
 	}
 	for _, expense := range r.SortExpenses() {
-		writer.Write([]string{expense.Time, strconv.FormatFloat(float64(expense.Amount.cents)/100, 'f', 2, 64), expense.Description})
+		fmt.Fprintf(writer, "\n%s,%.2f,%s", expense.Time, float64(expense.Amount.cents)/100, expense.Description)
 	}
-	writer.Flush()
-	return writer.Error()
+	return nil
 }
 
 // SortIncomes sort the incomes in the report from largest to smallest

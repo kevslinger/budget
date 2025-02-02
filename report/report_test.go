@@ -30,7 +30,7 @@ func TestBudgetReport(t *testing.T) {
 func TestReadBudgetReportFromFile(t *testing.T) {
 	reportName := "Test"
 	expected := report.NewBasicBudgetReport(reportName, []transaction.BasicTransaction{{Time: "1", Amount: currency.NewEuro(500.0), Description: "Income"}, {Time: "2", Amount: currency.NewEuro(-25.0), Description: "Groceries"}, {Time: "3", Amount: currency.NewEuro(-200.0), Description: "Rent"}})
-	actual, err := report.ReadDefaultBudgetReportFromFile(reportName, "testdata/defaultreport.csv")
+	actual, err := report.ReadDefaultBudgetReportFromFile(reportName, "../testdata/defaultreport.csv")
 	if err != nil {
 		t.Fatalf("Error while reading report from file: %v", err)
 	}
@@ -68,11 +68,11 @@ func TestCalculateTotalExpensePerDescription(t *testing.T) {
 
 func TestCombineReports(t *testing.T) {
 	reportName := "Test"
-	report1, err := report.ReadDefaultBudgetReportFromFile(reportName, "testdata/defaultreport.csv")
+	report1, err := report.ReadDefaultBudgetReportFromFile(reportName, "../testdata/defaultreport.csv")
 	if err != nil {
 		t.Fatalf("Failed while reading report from file: %v", err)
 	}
-	report2, err := report.ReadDefaultBudgetReportFromFile(reportName, "testdata/defaultreport.csv")
+	report2, err := report.ReadDefaultBudgetReportFromFile(reportName, "../testdata/defaultreport.csv")
 	if err != nil {
 		t.Fatalf("Failed while reading report from file: %v", err)
 	}

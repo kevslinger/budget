@@ -1,4 +1,4 @@
-package budget
+package currency
 
 import "fmt"
 
@@ -12,6 +12,10 @@ func NewEuro(euros float64) Euro {
 
 func AddEuros(e, e2 Euro) Euro {
 	return NewEuro(float64(e.cents+e2.cents) / 100)
+}
+
+func (e Euro) Cents() int64 {
+	return e.cents
 }
 
 func (e Euro) Cmp(e2 Euro) int {

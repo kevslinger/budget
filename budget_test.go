@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"github.com/kevslinger/budget"
+	"github.com/kevslinger/budget/currency"
+	"github.com/kevslinger/budget/report"
+	"github.com/kevslinger/budget/transaction"
 )
 
 func TestScanPeriodReturnsExpectedResult(t *testing.T) {
@@ -55,7 +58,7 @@ func TestScanIncomes(t *testing.T) {
 	thirdIncomeAmount := 500.75
 
 	incomeScanner := bufio.NewScanner(strings.NewReader(fmt.Sprintf("%s\n%.2f\n%s\n%.2f\n%s\n%.2f\n-1", firstIncomeTime, firstIncomeAmount, secondIncomeTime, secondIncomeAmount, thirdIncomeTime, thirdIncomeAmount)))
-	expectedIncomes := []budget.Transaction{{Time: firstIncomeTime, Amount: budget.NewEuro(firstIncomeAmount), Description: "Income"}, {Time: secondIncomeTime, Amount: budget.NewEuro(secondIncomeAmount), Description: "Income"}, {Time: thirdIncomeTime, Amount: budget.NewEuro(thirdIncomeAmount), Description: "Income"}}
+	expectedIncomes := []transaction.BasicTransaction{{Time: firstIncomeTime, Amount: currency.NewEuro(firstIncomeAmount), Description: "Income"}, {Time: secondIncomeTime, Amount: currency.NewEuro(secondIncomeAmount), Description: "Income"}, {Time: thirdIncomeTime, Amount: currency.NewEuro(thirdIncomeAmount), Description: "Income"}}
 	actualIncomes, err := budget.ScanIncomes(new(bytes.Buffer), incomeScanner)
 	if err != nil {
 		t.Fatalf("Got error reading incomes: %v", err)
@@ -98,7 +101,7 @@ func TestScanExpenses(t *testing.T) {
 	thirdExpenseDescription := "Groceries"
 
 	expenseScanner := bufio.NewScanner(strings.NewReader(fmt.Sprintf("%s\n%.2f\n%s\n%s\n%.2f\n%s\n%s\n%.2f\n%s\n-1", firstExpenseTime, firstExpenseAmount, firstExpenseDescription, secondExpenseTime, secondExpenseAmount, secondExpenseDescription, thirdExpenseTime, thirdExpenseAmount, thirdExpenseDescription)))
-	expectedExpenses := []budget.Transaction{{Time: firstExpenseTime, Amount: budget.NewEuro(-firstExpenseAmount), Description: firstExpenseDescription}, {Time: secondExpenseTime, Amount: budget.NewEuro(-secondExpenseAmount), Description: secondExpenseDescription}, {Time: thirdExpenseTime, Amount: budget.NewEuro(-thirdExpenseAmount), Description: thirdExpenseDescription}}
+	expectedExpenses := []transaction.BasicTransaction{{Time: firstExpenseTime, Amount: currency.NewEuro(-firstExpenseAmount), Description: firstExpenseDescription}, {Time: secondExpenseTime, Amount: currency.NewEuro(-secondExpenseAmount), Description: secondExpenseDescription}, {Time: thirdExpenseTime, Amount: currency.NewEuro(-thirdExpenseAmount), Description: thirdExpenseDescription}}
 	actualExpenses, err := budget.ScanExpenses(new(bytes.Buffer), expenseScanner)
 	if err != nil {
 		t.Fatalf("Got error reading expenses: %v", err)
@@ -135,7 +138,7 @@ func TestScanExpensesErrorsWithEmptyInput(t *testing.T) {
 
 func TestScanPrintExpenseReportEmptyInputDefaultsToYes(t *testing.T) {
 	scanner := bufio.NewScanner(strings.NewReader("\n"))
-	budget.ScanPrintExpenseReport(&strings.Builder{}, scanner, budget.Report{})
+	budget.ScanPrintExpenseReport(&strings.Builder{}, scanner, report.BasicReport{})
 }
 
 func TestPrintExpenseReport(t *testing.T) {
@@ -146,7 +149,7 @@ func TestPrintExpenseReport(t *testing.T) {
 	expenseTime := "January"
 	expenseAmount := -4999.0
 	expenseDescription := "Rent"
-	report := budget.NewBudgetReport(budgetName, []budget.Transaction{{Time: incomeTime, Amount: budget.NewEuro(incomeAmount), Description: incomeDescription}, {Time: expenseTime, Amount: budget.NewEuro(expenseAmount), Description: expenseDescription}})
+	report := report.NewBasicBudgetReport(budgetName, []transaction.BasicTransaction{{Time: incomeTime, Amount: currency.NewEuro(incomeAmount), Description: incomeDescription}, {Time: expenseTime, Amount: currency.NewEuro(expenseAmount), Description: expenseDescription}})
 	expected := report.String()
 	w := &strings.Builder{}
 	budget.PrintExpenseReport(w, report)
